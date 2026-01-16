@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 
 @Schema({
   toJSON: {
-    transform: (doc, ret) => {
+    transform: (_doc, ret) => {
       ret.id = ret._id.toString();
       delete ret._id;
       delete ret.__v;
