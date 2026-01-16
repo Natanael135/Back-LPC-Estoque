@@ -1,10 +1,7 @@
-import { Injectable } from '@nestjs/common';
-
-export interface Produto {
-  id: string;
-  nome: string;
-  quantidade: number;
-}
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Produto } from './produto.schema';
 
 export interface ItemRetirada {
   produtoId: string;
@@ -12,63 +9,75 @@ export interface ItemRetirada {
 }
 
 @Injectable()
-export class EstoqueService {
-  private produtos: Produto[] = [
-    { id: '1', nome: 'Coxinha de Frango', quantidade: 0 },
-    { id: '2', nome: 'Coxinha de Frango com Bacon', quantidade: 0 },
-    { id: '3', nome: 'Coxinha de Queijo', quantidade: 0 },
-    { id: '4', nome: 'Coxinha de Calabresa', quantidade: 0 },
-    { id: '5', nome: 'Coxinha de Pizza', quantidade: 0 },
-    { id: '6', nome: 'Coxinha de Carne do Sol', quantidade: 0 },
-    { id: '7', nome: 'Kibi', quantidade: 0 },
-    { id: '8', nome: 'Churritos', quantidade: 0 },
-    { id: '9', nome: 'Baby Churros de Chocolate', quantidade: 0 },
-    { id: '10', nome: 'Baby Churros de Doce de Leite', quantidade: 0 },
-  ];
+export class EstoqueService implements OnModuleInit {
+  constructor(
+    @InjectModel(Produto.name) private produtoModel: Model<Produto>,
+  ) {}
 
-  obterTodos(): Produto[] {
-    return this.produtos;
+  async onModuleInit() {
+    // Inicializar produtos se o banco estiver vazio
+    const count = await this.produtoModel.countDocuments();
+    if (count === 0) {
+      await this.produtoModel.insertMany([
+        { nome: 'Coxinha de Frango', quantidade: 210 },
+        { nome: 'Coxinha de Frango com Bacon', quantidade: 150 },
+        { nome: 'Coxinha de Queijo', quantidade: 180 },
+        { nome: 'Coxinha de Calabresa', quantidade: 150 },
+        { nome: 'Coxinha de Pizza', quantidade: 120 },
+        { nome: 'Coxinha de Carne do Sol', quantidade: 180 },
+        { nome: 'Kibi', quantidade: 15 },
+        { nome: 'Churritos', quantidade: 20 },
+        { nome: 'Baby Churros de Chocolate', quantidade: 30 },
+        { nome: 'Baby Churros de Doce de Leite', quantidade: 60 },
+      ]);
+    }
   }
 
-  adicionarEstoque(produtoId: string, quantidade: number): Produto {
-    const produto = this.produtos.find(p => p.id === produtoId);
+  async obterTodos(): Promise<Produto[]> {
+    return this.produtoModel.find().exec();
+  }
+
+  async adicionarEstoque(produtoId: string, quantidade: number): Promise<Produto> {
+    const produto = await this.produtoModel.findById(produtoId);
     if (!produto) {
       throw new Error('Produto não encontrado');
     }
     produto.quantidade += quantidade;
-    return produto;
+    return produto.save();
   }
 
-  retirarEmLote(itens: ItemRetirada[]): { sucesso: boolean; mensagem: string; produtos: Produto[] } {
+  async retirarEmLote(itens: ItemRetirada[]): Promise<{ sucesso: boolean; mensagem: string; produtos: Produto[] }> {
     // Validar se todos os produtos existem e têm estoque suficiente
     for (const item of itens) {
-      const produto = this.produtos.find(p => p.id === item.produtoId);
+      const produto = await this.produtoModel.findById(item.produtoId);
       if (!produto) {
         return {
           sucesso: false,
           mensagem: `Produto com ID ${item.produtoId} não encontrado`,
-          produtos: this.produtos,
+          produtos: await this.produtoModel.find().exec(),
         };
       }
       if (produto.quantidade < item.quantidade) {
         return {
           sucesso: false,
           mensagem: `Estoque insuficiente para ${produto.nome}. Disponível: ${produto.quantidade}, Solicitado: ${item.quantidade}`,
-          produtos: this.produtos,
+          produtos: await this.produtoModel.find().exec(),
         };
       }
     }
 
     // Se passou na validação, efetuar as retiradas
     for (const item of itens) {
-      const produto = this.produtos.find(p => p.id === item.produtoId);
-      produto.quantidade -= item.quantidade;
+      await this.produtoModel.findByIdAndUpdate(
+        item.produtoId,
+        { $inc: { quantidade: -item.quantidade } },
+      );
     }
 
     return {
       sucesso: true,
       mensagem: 'Retirada realizada com sucesso',
-      produtos: this.produtos,
+      produtos: await this.produtoModel.find().exec(),
     };
   }
 }

@@ -6,17 +6,23 @@ export class EstoqueController {
   constructor(private readonly estoqueService: EstoqueService) {}
 
   @Get()
-  obterTodos() {
-    return this.estoqueService.obterTodos();
+  async obterTodos() {
+    const produtos = await this.estoqueService.obterTodos();
+    return produtos.map(p => p.toJSON());
   }
 
   @Post('adicionar')
-  adicionar(@Body() body: { produtoId: string; quantidade: number }) {
-    return this.estoqueService.adicionarEstoque(body.produtoId, body.quantidade);
+  async adicionar(@Body() body: { produtoId: string; quantidade: number }) {
+    const produto = await this.estoqueService.adicionarEstoque(body.produtoId, body.quantidade);
+    return produto.toJSON();
   }
 
   @Post('retirar')
-  retirar(@Body() body: { itens: ItemRetirada[] }) {
-    return this.estoqueService.retirarEmLote(body.itens);
+  async retirar(@Body() body: { itens: ItemRetirada[] }) {
+    const resultado = await this.estoqueService.retirarEmLote(body.itens);
+    return {
+      ...resultado,
+      produtos: resultado.produtos.map(p => p.toJSON())
+    };
   }
 }
