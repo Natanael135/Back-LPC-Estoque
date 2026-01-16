@@ -14,7 +14,8 @@
     "typescript": "^5.9.3"
   },
   "scripts": {
-    "start": "ts-node src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js",
     "dev": "ts-node --watch src/main.ts"
   }
 }
