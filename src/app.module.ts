@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { EstoqueModule } from './estoque/estoque.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -11,5 +12,6 @@ import { EstoqueModule } from './estoque/estoque.module';
     MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://localhost:27017/estoque'),
     EstoqueModule,
   ],
+  controllers: [AppController],
 })
 export class AppModule {}
