@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Produto } from './produto.schema';
+import { Historico } from './historico.schema';
 
 export interface ItemRetirada {
   produtoId: string;
@@ -12,6 +13,7 @@ export interface ItemRetirada {
 export class EstoqueService implements OnModuleInit {
   constructor(
     @InjectModel(Produto.name) private produtoModel: Model<Produto>,
+    @InjectModel(Historico.name) private historicoModel: Model<Historico>,
   ) {}
 
   async onModuleInit() {
@@ -46,6 +48,42 @@ export class EstoqueService implements OnModuleInit {
     return produto.save();
   }
 
+  async adicionarEmLote(itens: ItemRetirada[]): Promise<{ sucesso: boolean; mensagem: string; produtos: Produto[] }> {
+    const itensHistorico: { produtoNome: string; quantidade: number }[] = [];
+
+    for (const item of itens) {
+      const produto = await this.produtoModel.findById(item.produtoId);
+      if (!produto) {
+        return {
+          sucesso: false,
+          mensagem: `Produto com ID ${item.produtoId} não encontrado`,
+          produtos: await this.produtoModel.find().exec(),
+        };
+      }
+      itensHistorico.push({ produtoNome: produto.nome, quantidade: item.quantidade });
+    }
+
+    for (const item of itens) {
+      await this.produtoModel.findByIdAndUpdate(
+        item.produtoId,
+        { $inc: { quantidade: item.quantidade } },
+      );
+    }
+
+    // Registrar no histórico como um grupo
+    await this.historicoModel.create({
+      tipo: 'adicao',
+      itens: itensHistorico,
+      data: new Date(),
+    });
+
+    return {
+      sucesso: true,
+      mensagem: 'Adição realizada com sucesso',
+      produtos: await this.produtoModel.find().exec(),
+    };
+  }
+
   async retirarEmLote(itens: ItemRetirada[]): Promise<{ sucesso: boolean; mensagem: string; produtos: Produto[] }> {
     // Validar se todos os produtos existem e têm estoque suficiente
     for (const item of itens) {
@@ -67,17 +105,33 @@ export class EstoqueService implements OnModuleInit {
     }
 
     // Se passou na validação, efetuar as retiradas
+    const itensHistorico: { produtoNome: string; quantidade: number }[] = [];
     for (const item of itens) {
+      const produto = await this.produtoModel.findById(item.produtoId);
+      if (produto) {
+        itensHistorico.push({ produtoNome: produto.nome, quantidade: item.quantidade });
+      }
       await this.produtoModel.findByIdAndUpdate(
         item.produtoId,
         { $inc: { quantidade: -item.quantidade } },
       );
     }
 
+    // Registrar no histórico como um grupo
+    await this.historicoModel.create({
+      tipo: 'retirada',
+      itens: itensHistorico,
+      data: new Date(),
+    });
+
     return {
       sucesso: true,
       mensagem: 'Retirada realizada com sucesso',
       produtos: await this.produtoModel.find().exec(),
     };
+  }
+
+  async obterHistorico(): Promise<Historico[]> {
+    return this.historicoModel.find().sort({ data: -1 }).limit(50).exec();
   }
 }

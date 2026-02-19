@@ -16,6 +16,6 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/main.js",
-    "dev": "ts-node --watch src/main.ts"
+    "dev": "nest start --watch"
   }
 }

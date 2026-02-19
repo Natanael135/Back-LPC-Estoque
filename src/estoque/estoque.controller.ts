@@ -12,9 +12,12 @@ export class EstoqueController {
   }
 
   @Post('adicionar')
-  async adicionar(@Body() body: { produtoId: string; quantidade: number }) {
-    const produto = await this.estoqueService.adicionarEstoque(body.produtoId, body.quantidade);
-    return produto.toJSON();
+  async adicionar(@Body() body: { itens: ItemRetirada[] }) {
+    const resultado = await this.estoqueService.adicionarEmLote(body.itens);
+    return {
+      ...resultado,
+      produtos: resultado.produtos.map(p => p.toJSON()),
+    };
   }
 
   @Post('retirar')
@@ -24,5 +27,11 @@ export class EstoqueController {
       ...resultado,
       produtos: resultado.produtos.map(p => p.toJSON())
     };
+  }
+
+  @Get('historico')
+  async obterHistorico() {
+    const historico = await this.estoqueService.obterHistorico();
+    return historico.map(h => h.toJSON());
   }
 }
